@@ -2,6 +2,7 @@
 import type { Api, AssistantMessage, Context, Model, SimpleStreamOptions } from "@earendil-works/pi-ai";
 import { getModelRegistry, getModelRuntime } from "./session-registry.ts";
 import { ONE_SHOT_REASONING } from "./one-shot-reasoning.ts";
+import { goHelperSessionId, goRequestOptions } from "./opencode-go.ts";
 import { assertModelAuthentication, modelReference, resolveModel } from "./models.ts";
 import { emptySnapshot, isBudgetExceeded, recordRun } from "../cost/ledger.ts";
 import { billingCountsTowardBudget, billingForModel } from "../cost/billing.ts";
@@ -124,7 +125,13 @@ export async function generateNextExperiments(projectId: string, source: { sessi
       throw new NextExperimentError(message.includes("receipt limit") ? 429 : 503, "REQUEST_NOT_DISPATCHED", `No planning call was dispatched: ${message}`);
     }
     let message: AssistantMessage;
-    try { message = await complete(model, generationContext, { maxTokens: 6000, reasoning: ONE_SHOT_REASONING }); }
+    try {
+      message = await complete(model, generationContext, {
+        ...goRequestOptions(model, goHelperSessionId(projectId, "next-experiments", source.sessionId, source.entryId)),
+        maxTokens: 6000,
+        reasoning: ONE_SHOT_REASONING,
+      });
+    }
     catch (e) { throw new NextExperimentError(502, "MODEL_FAILED", `${(e as Error).message}. No complete usage response was returned; provider billing may be unknown. This request will not be automatically repeated.`); }
     // Account for every returned response, including refusals/invalid JSON; do
     // not turn failed validation into free, unledgered model usage.

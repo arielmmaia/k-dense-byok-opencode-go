@@ -36,6 +36,9 @@ export function modelUsesBillableBudget(model: {
   id: string;
   billingMode?: Model["billingMode"];
 }): boolean {
+  // Go was previously marked payg. Persisted tabs may still carry that value;
+  // its canonical provider always uses the plan, regardless of stale metadata.
+  if (model.id.startsWith("opencode-go/")) return false;
   if (model.billingMode === "subscription" || model.billingMode === "local") {
     return false;
   }
@@ -287,6 +290,8 @@ function ModelPickerList({ selected, onSelect, compact }: ModelPickerListProps) 
             )}
             {model.sourceId === "nvidia" ? (
               <span>Billed via NVIDIA API credits · not metered by Kady</span>
+            ) : model.sourceId === "opencode-go" ? (
+              <span>Uses OpenCode Go subscription limits · overages managed by OpenCode</span>
             ) : model.billingMode === "subscription" &&
               model.sourceId &&
               OAUTH_SECTION_ORDER.includes(model.sourceId) ? (

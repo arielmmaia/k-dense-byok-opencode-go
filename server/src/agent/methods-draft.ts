@@ -16,6 +16,7 @@ import type {
 } from "@earendil-works/pi-ai";
 import { getModelRegistry, getModelRuntime } from "./session-registry.ts";
 import { ONE_SHOT_REASONING } from "./one-shot-reasoning.ts";
+import { goHelperSessionId, goRequestOptions } from "./opencode-go.ts";
 import {
   assertModelAuthentication,
   modelReference,
@@ -226,6 +227,7 @@ export async function runMethodsDraft(
   let msg: AssistantMessage;
   try {
     msg = await completeFn(model, buildMethodsDraftContext(entries, { sessionId, projectName }), {
+      ...goRequestOptions(model, goHelperSessionId(projectId, "methods-draft", sessionId)),
       maxTokens: MAX_OUTPUT_TOKENS,
       reasoning: ONE_SHOT_REASONING,
     });

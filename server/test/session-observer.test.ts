@@ -15,6 +15,13 @@ vi.mock("../src/agent/session-registry.ts", () => ({
   unpinSession: vi.fn(),
 }));
 
+// These tests exercise run ownership and billing, not interpreter discovery.
+// Real environment probes can outlive the fake turn and its temporary project.
+vi.mock("../src/provenance/environment.ts", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../src/provenance/environment.ts")>(),
+  captureEnvironment: vi.fn(async () => null),
+}));
+
 import { PROJECTS_ROOT } from "../src/config.ts";
 import { createProject, resolvePaths } from "../src/projects.ts";
 import { recordRun } from "../src/cost/ledger.ts";
@@ -65,7 +72,9 @@ class FakeSession {
 }
 
 const log = { warn: vi.fn(), error: vi.fn() };
-const flush = () => new Promise((resolve) => setTimeout(resolve, 20));
+const waitForCompletion = (pid: string, sessionId: string) => vi.waitFor(() => {
+  expect(runBroker.get(pid, sessionId)?.isComplete).toBe(true);
+});
 const frameTypes = (frames: SequencedClientFrame[]) => frames.map((f) => f.type);
 const costRows = (projectId: string, sessionId: string) => {
   const file = path.join(resolvePaths(projectId).sandbox, ".kady", "runs", sessionId, "costs.jsonl");
@@ -128,7 +137,7 @@ describe("session observer", () => {
     session.emit({ type: "agent_end" });
     session.isStreaming = false;
     session.emit({ type: "agent_settled" });
-    await flush();
+    await waitForCompletion(projectId, session.sessionId);
 
     const state = handle!.state();
     expect(state.status).toBe("complete");
@@ -153,12 +162,11 @@ describe("session observer", () => {
     expect(currentRunId(projectId, session.sessionId)).toBeUndefined();
   });
 
-  it("stays passive while a route-owned claim exists", async () => {
+  it("stays passive while a route-owned claim exists", () => {
     const session = new FakeSession();
     attach(session);
     const claim = claimRun(projectId, session.sessionId)!;
     session.turn([{ type: "turn_end", message: { usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2 } } }]);
-    await flush();
     expect(runBroker.get(projectId, session.sessionId)).toBeUndefined();
     expect(costRows(projectId, session.sessionId)).toHaveLength(0);
     claim.release();
@@ -175,7 +183,7 @@ describe("session observer", () => {
     session.emit({ type: "agent_end" });
     session.isStreaming = false;
     session.emit({ type: "agent_settled" });
-    await flush();
+    await waitForCompletion(projectId, session.sessionId);
     const handles = runBroker.activityForProject(projectId);
     expect(handles).toHaveLength(1);
     expect(runBroker.get(projectId, session.sessionId)!.state().status).toBe("complete");
@@ -224,8 +232,7 @@ describe("session observer", () => {
     session.emit({ type: "agent_start" });
     // Not inside the listener: nothing awaited yet.
     expect(session.aborted).toBe(0);
-    await flush();
-    expect(session.aborted).toBe(1);
+    await vi.waitFor(() => expect(session.aborted).toBe(1));
     const handle = runBroker.get(capped.id, session.sessionId)!;
     expect(handle.activityState).toBe("blocked");
     expect(handle.state().run!.frames.some((f) => f.type === "error" && f.kind === "budget")).toBe(true);
@@ -235,7 +242,7 @@ describe("session observer", () => {
     session.emit({ type: "agent_end" });
     session.isStreaming = false;
     session.emit({ type: "agent_settled" });
-    await flush();
+    await waitForCompletion(capped.id, session.sessionId);
     expect(handle.isComplete).toBe(true);
     expect(costRows(capped.id, session.sessionId)).toHaveLength(1);
   });
@@ -248,7 +255,7 @@ describe("session observer", () => {
     const handle = runBroker.get(projectId, session.sessionId)!;
     stop();
     detach = null;
-    await flush();
+    await waitForCompletion(projectId, session.sessionId);
     expect(handle.isComplete).toBe(true);
     const types = frameTypes(handle.state().run!.frames);
     expect(types).toContain("error");
@@ -268,7 +275,22 @@ describe("session observer", () => {
     session.emit({ type: "agent_end" });
     session.isStreaming = false;
     session.emit({ type: "agent_settled" });
-    await flush();
+    await waitForCompletion(projectId, session.sessionId);
     expect(runBroker.get(projectId, session.sessionId)!.isComplete).toBe(true);
+  });
+
+  it("adopts Go system turns above the project cap and records reference usage", async () => {
+    const capped = createProject({ name: "Go system run", spendLimitUsd: 0.01 });
+    const zero = { costUsd: 0, input: 0, output: 0, cacheRead: 0, total: 0 };
+    recordRun({ projectId: capped.id, sessionId: "spent", model: "opencode/kimi-k2.6", before: zero, after: { ...zero, costUsd: 1 } });
+    const session = new FakeSession();
+    session.model = { provider: "opencode-go", id: "kimi-k2.6" } as never;
+    attach(session, capped.id);
+    session.turn([{ type: "turn_end", message: { usage: { input: 10, output: 5, cacheRead: 0, cacheWrite: 0, totalTokens: 15, cost: { total: 0.01 } } } }]);
+    await waitForCompletion(capped.id, session.sessionId);
+    expect(session.aborted).toBe(0);
+    const handle = runBroker.get(capped.id, session.sessionId)!;
+    expect(handle.state().run?.frames).toContainEqual(expect.objectContaining({ type: "cost", runCost: 0, runTokens: 15, runBillingMode: "subscription", runListPriceUsd: 0.01 }));
+    expect(costRows(capped.id, session.sessionId)).toEqual([expect.objectContaining({ provider: "opencode-go", billingMode: "subscription", costUsd: 0, listPriceUsd: 0.01 })]);
   });
 });

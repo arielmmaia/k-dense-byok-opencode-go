@@ -4,7 +4,7 @@ import type { AssistantMessage } from "@earendil-works/pi-ai";
 import { PROJECTS_ROOT } from "../src/config.ts";
 import { createProject, updateProject } from "../src/projects.ts";
 import { withActiveProject } from "../src/scope.ts";
-import { sessionCostSummary } from "../src/cost/ledger.ts";
+import { emptySnapshot, recordRun, sessionCostSummary } from "../src/cost/ledger.ts";
 import {
   AssistError,
   buildAssistContext,
@@ -82,6 +82,28 @@ describe("buildAssistContext", () => {
 });
 
 describe("runLatexAssist", () => {
+  it("uses stable document-scoped Go headers and records reference usage above the spend cap", async () => {
+    const p = createProject({ name: "Go assist", spendLimitUsd: 0.01 });
+    recordRun({ projectId: p.id, sessionId: "spent", model: "openrouter/openai/gpt-4o", before: emptySnapshot(), after: { ...emptySnapshot(), costUsd: 1 } });
+    const ids: string[] = [];
+    for (const fileName of ["main.tex", "main.tex", "other.tex"]) {
+      const result = await runLatexAssist({ mode: "edit", fileName, instruction: "bold", selection: "hello", model: "opencode-go/kimi-k2.6" }, p.id, async (_model, _context, options) => {
+        expect(options?.headers?.["x-opencode-session"]).toBe(options?.sessionId);
+        expect(options?.headers?.["user-agent"]).toMatch(/^kady\//);
+        expect(options?.reasoning).toBe(ONE_SHOT_REASONING);
+        ids.push(options!.sessionId!);
+        return fakeMessage("\\textbf{hello}");
+      });
+      expect(result).toMatchObject({ costUsd: 0, listPriceUsd: 0.003, billingMode: "subscription" });
+    }
+    expect(ids[0]).toMatch(/^kady-[a-f0-9]{64}$/);
+    expect(ids[1]).toBe(ids[0]);
+    expect(ids[2]).not.toBe(ids[0]);
+    const summary = sessionCostSummary("latex-assist", p.id);
+    expect(summary.totalUsd).toBe(0);
+    expect(summary.subscriptionTokens).toBe(360);
+  });
+
   it("returns the replacement and ledgers cost under latex-assist", async () => {
     const p = createProject({ name: "Assist" });
     const res = await withActiveProject(p.id, () =>

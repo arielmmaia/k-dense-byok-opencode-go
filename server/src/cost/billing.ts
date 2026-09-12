@@ -49,10 +49,10 @@ export function billingForProvider(
   if (provider === "anthropic" && authType === "oauth") {
     return { provider, authType, billingMode: "metered_oauth" };
   }
-  // Prepaid plans and credit pools (NVIDIA NIM, the Qwen/Xiaomi token plans,
-  // Kimi For Coding): the endpoint draws NVIDIA API credits or a plan quota,
-  // not per-token USD, and Pi prices every such model at $0. Like the OAuth
-  // subscription providers, tokens (and any Pi-reported list price) are
+  // Prepaid plans and credit pools (OpenCode Go, NVIDIA NIM, Qwen/Xiaomi):
+  // the endpoint draws credits or a plan quota. Go has nonzero catalogue
+  // prices for quota accounting; NIM/Qwen/Xiaomi are mostly $0. Like the OAuth
+  // subscription providers, tokens (and any Pi-reported reference price) are
   // recorded but the spend is external, so it neither counts toward nor is
   // blocked by the project cap — classifying them payg would let an exceeded
   // cap block runs that ledger $0. Whichever credential Pi resolved.

@@ -13,6 +13,7 @@ import type {
 } from "@earendil-works/pi-ai";
 import { getModelRegistry, getModelRuntime } from "../agent/session-registry.ts";
 import { ONE_SHOT_REASONING } from "../agent/one-shot-reasoning.ts";
+import { goHelperSessionId, goRequestOptions } from "../agent/opencode-go.ts";
 import {
   assertModelAuthentication,
   modelReference,
@@ -155,6 +156,7 @@ export async function runLatexAssist(
   let msg: AssistantMessage;
   try {
     msg = await completeFn(model, buildAssistContext(req), {
+      ...goRequestOptions(model, goHelperSessionId(projectId, "latex-assist", req.fileName)),
       maxTokens: MAX_OUTPUT_TOKENS,
       reasoning: ONE_SHOT_REASONING,
     });

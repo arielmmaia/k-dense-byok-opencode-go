@@ -19,6 +19,8 @@
 
 **Your own AI research assistant, running on your computer, powered by the accounts and API keys you choose.**
 
+**OpenCode Go fork:** this fork adds selectable [OpenCode Go subscription support](./docs/model-selection.md#opencode-go-subscription). Add your Go API key in **Settings → API keys → Direct model providers → OpenCode Go**, then choose a Go model in the chat picker. Kady records tokens and reference-price usage; OpenCode manages subscription quotas and optional overages.
+
 ![K-Dense BYOK — Kady running an end-to-end single-cell RNA-seq analysis: asking in plain language, streaming tool calls, the generated figures and report, the living lab notebook, and the skills and specialists settings](docs/kady-demo.gif)
 
 K-Dense BYOK (Bring Your Own Keys) is a free, open-source app that gives you **Kady** — an AI research assistant for scientists in any field. Describe a task in plain language — *analyze this dataset*, *review my manuscript*, *search the literature*, *build this figure* — and Kady works through it in a complete research workspace. It can inspect your files, write and run analysis code, search and read sources, create figures and reports, and keep a living record of what it did.
@@ -100,6 +102,7 @@ You need a compatible computer and at least one model source:
    - On Windows, install [Node.js 22+](https://nodejs.org/) (or `winget install OpenJS.NodeJS.LTS`) and [Git for Windows](https://git-scm.com/download/win) first — Kady's agent runs its shell commands through the Git Bash that Git for Windows provides. (Prefer a Linux environment? [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) works too.)
 2. One of:
    - an **[OpenRouter](https://openrouter.ai/) API key** for broad pay-as-you-go model access,
+   - an **[OpenCode Go subscription](https://opencode.ai/docs/go/)** with its API key, pasted into Settings after launch,
    - an **API key for any provider Pi supports** — Anthropic, OpenAI, Google, Groq, Mistral, DeepSeek, [NVIDIA NIM](https://build.nvidia.com/), Azure, Bedrock, Vertex, and [more](./docs/model-selection.md#direct-api-key-providers) — pasted in Settings after launch,
    - a supported **ChatGPT Plus/Pro, Claude Pro/Max, GitHub Copilot, xAI, or Kimi Code subscription** that you connect after launch, or
    - [free local models through Ollama](./docs/local-models-ollama.md).
@@ -107,8 +110,8 @@ You need a compatible computer and at least one model source:
 Open a terminal (on a Mac: press `Cmd+Space`, type "Terminal", press Enter) and run these four lines:
 
 ```bash
-git clone https://github.com/K-Dense-AI/k-dense-byok.git
-cd k-dense-byok
+git clone https://github.com/arielmmaia/k-dense-byok-opencode-go.git
+cd k-dense-byok-opencode-go
 cp .env.example .env    # optional: add an OpenRouter key or other settings
 ./start.sh
 ```
@@ -116,15 +119,15 @@ cp .env.example .env    # optional: add an OpenRouter key or other settings
 On Windows (press `Win`, type "PowerShell" or "Terminal", press Enter):
 
 ```powershell
-git clone https://github.com/K-Dense-AI/k-dense-byok.git
-cd k-dense-byok
+git clone https://github.com/arielmmaia/k-dense-byok-opencode-go.git
+cd k-dense-byok-opencode-go
 copy .env.example .env    # optional: add an OpenRouter key or other settings
 .\start.cmd
 ```
 
-In plain terms: the first two lines download the app and step into its folder; the third creates an optional local settings file; the last starts the app. If you use a supported subscription instead of OpenRouter, connect it in **Settings → Model providers** once Kady opens.
+In plain terms: the first two lines download the app and step into its folder; the third creates an optional local settings file; the last starts the app. For Go, subscribe and copy your key from the [OpenCode dashboard](https://opencode.ai/auth), then search for **OpenCode Go** under **Settings → API keys → Direct model providers**. Save the key and select a model such as `opencode-go/kimi-k2.6` in the chat picker. OAuth subscriptions connect in **Settings → Model providers**.
 
-The first start installs everything automatically (it takes a few minutes); then your browser opens to **http://localhost:3000** — that address is your own computer, not a website. Press **Ctrl+C** in the terminal to stop the app. You can connect subscriptions under **Model providers** and add or change keys under **API keys** anytime — no restart needed.
+The first start installs everything automatically (it takes a few minutes); then your browser opens to **http://localhost:3000** — that address is your own computer, not a website. Press **Ctrl+C** in the terminal to stop the app. You can connect OAuth subscriptions under **Model providers** and add or change keys (including Go) under **API keys** anytime — no restart needed.
 
 That's it. Create a project, drop in your data, and ask Kady for what you want — for example: *"Run a differential expression analysis on counts.csv comparing treated vs control, and plot a volcano plot."*
 

@@ -682,7 +682,7 @@ export interface ClientDirectModel
  * These providers are deliberately NOT OAuth flows: the key is an env var
  * managed by /credentials. `billingMode` mirrors `billingForProvider` so the
  * picker's cap hint agrees with the ledger — `subscription` for credit/plan
- * providers such as NVIDIA NIM, `payg` for everything Pi prices per token.
+ * providers such as OpenCode Go and NVIDIA NIM, `payg` for metered APIs.
  */
 export function directModelForClient(
   model: Model<Api>,

@@ -33,6 +33,25 @@ async function input(id = project) { return { requestId: crypto.randomUUID(), mo
 const good = () => Promise.resolve(message(JSON.stringify(experimentPlan)));
 beforeEach(() => { vi.restoreAllMocks(); fs.rmSync(PROJECTS_ROOT, { recursive: true, force: true }); fs.mkdirSync(PROJECTS_ROOT, { recursive: true }); });
 describe("source-linked next investigations", () => {
+  it("uses stable Go source headers and records subscription usage on invalid responses", async () => {
+    setup();
+    const ids: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      await expect(generateNextExperiments(project, source, { ...await input(), model: "opencode-go/kimi-k2.6" }, async (_model, _context, options) => {
+        expect(options?.headers?.["x-opencode-session"]).toBe(options?.sessionId);
+        expect(options?.headers?.["user-agent"]).toMatch(/^kady\//);
+        ids.push(options!.sessionId!);
+        return message("not JSON");
+      })).rejects.toMatchObject({ code: "INVALID_PROPOSAL", costUsd: 0 });
+    }
+    expect(ids[0]).toMatch(/^kady-[a-f0-9]{64}$/);
+    expect(ids[1]).toBe(ids[0]);
+    const costs = sessionCostSummary(NEXT_EXPERIMENTS_SESSION_ID, project);
+    expect(costs.totalUsd).toBe(0);
+    expect(costs.listPriceUsd).toBeCloseTo(0.006);
+    expect(costs.subscriptionTokens).toBe(240);
+  });
+
   it("builds bounded context from scientific records, linking contradictions without running work", async () => {
     setup(); appendNotebookEntry("other-chat", { id: "obs", type: "observation", title: "Batch conflicts with treatment interpretation", role: "agent", timestamp: 2, outcome: "inconclusive", evidence: [{ ...source, relation: "challenges" }] }, project);
     const { context } = await buildNextExperimentContext(project, source);

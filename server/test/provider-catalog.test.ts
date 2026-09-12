@@ -123,7 +123,8 @@ describe("provider catalogue covers Pi's built-in providers", () => {
   it("classifies every $0-priced catalogue as plan-billed", () => {
     // A provider whose whole Pi catalogue is $0 would ledger nothing as payg
     // and then be blocked by an exceeded cap for no reason; the reverse (a
-    // priced provider marked plan-billed) would hide real spend from the cap.
+    // priced provider marked plan-billed) normally hides real spend. Go is
+    // explicitly a priced subscription: https://opencode.ai/docs/go/.
     for (const definition of DIRECT_PROVIDERS) {
       const models = runtime.getModels(definition.id);
       if (models.length === 0) continue;
@@ -132,8 +133,10 @@ describe("provider catalogue covers Pi's built-in providers", () => {
         expect(definition.billingMode, `${definition.id} is $0 in Pi`).toBe("subscription");
       }
       // NIM and Kimi carry a couple of priced rows beside a $0 catalogue; a
-      // provider Pi prices for the most part must never be marked plan-billed.
-      if (zero / models.length < 0.5) {
+      // mostly priced provider is payg unless it is the documented Go plan.
+      if (definition.id === "opencode-go") {
+        expect(definition.billingMode).toBe("subscription");
+      } else if (zero / models.length < 0.5) {
         expect(definition.billingMode, `${definition.id} is priced by Pi`).toBe("payg");
       }
     }
@@ -282,6 +285,7 @@ describe("direct provider billing", () => {
   it("treats prepaid plans and credit pools as external spend", () => {
     for (const provider of [
       "nvidia",
+      "opencode-go",
       "qwen-token-plan",
       "qwen-token-plan-cn",
       "xiaomi-token-plan-sgp",
@@ -461,7 +465,7 @@ describe("GET /providers/models", () => {
 
 describe("PUT /credentials for direct-provider fields", () => {
   const saved = new Map<string, string | undefined>();
-  const touched = ["GROQ_API_KEY", "CLOUDFLARE_ACCOUNT_ID", "GOOGLE_CLOUD_LOCATION", "MOONSHOT_API_KEY"];
+  const touched = ["GROQ_API_KEY", "CLOUDFLARE_ACCOUNT_ID", "GOOGLE_CLOUD_LOCATION", "MOONSHOT_API_KEY", "OPENCODE_API_KEY"];
 
   afterEach(() => {
     for (const name of touched) {
@@ -511,6 +515,35 @@ describe("PUT /credentials for direct-provider fields", () => {
     expect(response.json().CLOUDFLARE_ACCOUNT_ID).toEqual({ set: true, masked: "abc123def" });
     expect(process.env.GOOGLE_CLOUD_LOCATION).toBe("global");
     expect(fs.readFileSync(envPath, "utf-8")).toContain("GOOGLE_CLOUD_LOCATION=global");
+  });
+
+  it("shares a saved OpenCode key across Go and Zen, discovers their distinct billing, and clears both", async () => {
+    const { instance } = await app();
+    const runtime = getModelRuntime();
+    await registerModelProviderRoutes(instance, { runtime });
+    try {
+      const providers = (await instance.inject({ url: "/providers" })).json().providers;
+      for (const id of ["opencode", "opencode-go"]) {
+        expect(providers.find((p: { id: string }) => p.id === id).fields[0]).toMatchObject({ envVar: "OPENCODE_API_KEY", bodyField: "opencodeApiKey" });
+      }
+      const saved = await instance.inject({ method: "PUT", url: "/credentials", payload: { opencodeApiKey: "test-opencode-secret" } });
+      expect(saved.statusCode).toBe(200);
+      expect(saved.body).not.toContain("test-opencode-secret");
+      expect((await runtime.checkAuth("opencode-go"))?.type).toBe("api_key");
+      expect((await runtime.checkAuth("opencode"))?.type).toBe("api_key");
+      const { models } = (await instance.inject({ url: "/providers/models" })).json();
+      expect(models).toContainEqual(expect.objectContaining({ id: "opencode-go/kimi-k2.6", billingMode: "subscription", available: true }));
+      expect(models.some((m: { sourceId: string; billingMode: string }) => m.sourceId === "opencode" && m.billingMode === "payg")).toBe(true);
+      const cleared = await instance.inject({ method: "PUT", url: "/credentials", payload: { opencodeApiKey: null } });
+      expect(cleared.statusCode).toBe(200);
+      expect(await runtime.checkAuth("opencode-go")).toBeUndefined();
+      expect(await runtime.checkAuth("opencode")).toBeUndefined();
+      const after = (await instance.inject({ url: "/providers/models" })).json().models;
+      expect(after.some((m: { sourceId: string }) => m.sourceId === "opencode-go" || m.sourceId === "opencode")).toBe(false);
+    } finally {
+      await runtime.removeRuntimeApiKey("opencode-go");
+      await runtime.removeRuntimeApiKey("opencode");
+    }
   });
 
   it("still rejects short secrets and masks stored keys", async () => {

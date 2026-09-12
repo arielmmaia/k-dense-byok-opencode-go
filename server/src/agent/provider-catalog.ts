@@ -15,8 +15,8 @@
  *     dead Settings field),
  *   - Kady's billing classification (`payg` = per-token USD Pi can price,
  *     counted against the project cap; `subscription` = a prepaid plan or
- *     credit pool Pi prices at $0, recorded but never cap-counted — see the
- *     NVIDIA rationale in `cost/billing.ts`),
+ *     credit pool, recorded but never cap-counted — any Pi price is a usage
+ *     reference, not project spend; see `cost/billing.ts`),
  *   - which providers may synthesize unknown model ids ($0 is only honest for
  *     credit-billed NIM; a payg provider synthesized at $0 would bypass the cap).
  *
@@ -96,6 +96,7 @@ function simple(
       | "keyLabel"
       | "keyPlaceholder"
       | "billingMode"
+      | "billingNote"
       | "oauth"
       | "synthesizeUnknownIds"
     >
@@ -114,7 +115,7 @@ function simple(
     keyPlaceholder: options.keyPlaceholder,
     extraEnv: [],
     billingMode,
-    billingNote: billingMode === "payg" ? PAYG_NOTE : PLAN_NOTE,
+    billingNote: options.billingNote ?? (billingMode === "payg" ? PAYG_NOTE : PLAN_NOTE),
     synthesizeUnknownIds: options.synthesizeUnknownIds ?? false,
     runtimeKey: true,
     oauth: options.oauth ?? false,
@@ -202,8 +203,12 @@ export const DIRECT_PROVIDERS: readonly DirectProviderDefinition[] = [
     hint: "OpenCode Zen curated multi-vendor endpoint. Shares OPENCODE_API_KEY with OpenCode Go.",
   }),
   simple("opencode-go", "OpenCode Go", "OPENCODE_API_KEY", {
-    keysUrl: "https://opencode.ai/zen",
-    hint: "OpenCode Go plan endpoint. Shares OPENCODE_API_KEY with OpenCode Zen.",
+    keysUrl: "https://opencode.ai/auth",
+    keyLabel: "OpenCode API key (Go subscription)",
+    description: "OpenCode Go subscription · provider-managed usage limits",
+    hint: "Subscribe to Go in the OpenCode dashboard, then paste your API key here and select a model from the OpenCode Go section in the chat picker. Shares OPENCODE_API_KEY with OpenCode Zen; Go models use the separate /zen/go endpoint.",
+    billingMode: "subscription",
+    billingNote: "Go subscription: Kady records tokens and Pi's reference-price estimate, with no USD spend counted toward the project cap. OpenCode manages usage limits and optional Use balance overages; Kady cannot meter or cap those external charges.",
   }),
 
   // ---- China / Asia labs and token plans -----------------------------------

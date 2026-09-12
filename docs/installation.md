@@ -57,11 +57,11 @@ You can run entirely on free local models instead — see [Local models with Oll
 Open a terminal (on a Mac: press `Cmd+Space`, type "Terminal", press Enter; on Windows: press `Win`, type "PowerShell" or "Terminal", press Enter) and run:
 
 ```bash
-git clone https://github.com/K-Dense-AI/k-dense-byok.git
-cd k-dense-byok
+git clone https://github.com/arielmmaia/k-dense-byok-opencode-go.git
+cd k-dense-byok-opencode-go
 ```
 
-This downloads the project into a folder called `k-dense-byok` and moves you into it.
+This downloads this fork into a folder called `k-dense-byok-opencode-go` and moves you into it.
 
 ## 4. Configure model access
 
@@ -78,7 +78,15 @@ If you use OpenRouter, open `.env` in any text editor and paste your key:
 OPENROUTER_API_KEY=sk-or-your-key-here
 ```
 
-If you use only a Pi subscription or Ollama, you can leave `OPENROUTER_API_KEY` blank. The startup script creates `.env` if needed, and OpenRouter keys can also be added later under **Settings → API keys**.
+If you use only OpenCode Go, another direct model provider, a Pi subscription, or Ollama, you can leave `OPENROUTER_API_KEY` blank. The startup script creates `.env` if needed, and keys can also be added later under **Settings → API keys**.
+
+### OpenCode Go
+
+1. Sign in to the [OpenCode dashboard](https://opencode.ai/auth), subscribe to **Go**, and copy your API key.
+2. After starting Kady, open **Settings → API keys → Direct model providers**, search for **OpenCode Go**, expand it, and save the key. Alternatively, set `OPENCODE_API_KEY=your-key` in `.env` before launch.
+3. Open the chat model picker and choose a model under **OpenCode Go**, such as `opencode-go/kimi-k2.6`. Specialists inherit the chosen model unless they have an explicit model override.
+
+The API key is shared with OpenCode Zen. Select the **OpenCode Go** section to use the subscription; **OpenCode Zen** is pay-as-you-go. Kady records Go tokens and a reference-price estimate separately from project spend. OpenCode's console controls quotas and optional **Use balance** overages, which Kady cannot meter or cap. See [Go model selection and troubleshooting](./model-selection.md#opencode-go-subscription).
 
 OAuth tokens are kept outside the repository and all projects. By default Pi stores them in Kady's private `~/.kady/pi-agent/auth.json`; the lead agent and its specialist subagents use that same store. Set `KADY_PI_AGENT_DIR` to relocate Kady's Pi directory. If you explicitly set `PI_CODING_AGENT_DIR`, it takes precedence; point it at your standalone Pi agent directory only when you intentionally want Kady and Pi to share authentication and settings.
 

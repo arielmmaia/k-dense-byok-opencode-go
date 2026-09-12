@@ -156,6 +156,23 @@ describe("runMethodsDraft", () => {
     expect(res.markdown).toBe("## Methods\nBody.");
   });
 
+  it("sends a stable Go notebook identity and ledgers subscription reference usage", async () => {
+    const p = createProject({ name: "Go methods" });
+    appendNotebookEntry("go-chat", entryOf(), p.id);
+    const ids: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const result = await runMethodsDraft("go-chat", p.id, { model: "opencode-go/kimi-k2.6" }, async (_model, _context, options) => {
+        expect(options?.headers?.["x-opencode-session"]).toBe(options?.sessionId);
+        expect(options?.headers?.["user-agent"]).toMatch(/^kady\//);
+        ids.push(options!.sessionId!);
+        return fakeMessage("## Methods\nRecorded work.");
+      });
+      expect(result).toMatchObject({ costUsd: 0, listPriceUsd: 0.003, billingMode: "subscription" });
+    }
+    expect(ids[0]).toMatch(/^kady-[a-f0-9]{64}$/);
+    expect(ids[1]).toBe(ids[0]);
+  });
+
   it("throws 400 when the notebook is empty", async () => {
     const p = createProject({ name: "Empty" });
     await expect(

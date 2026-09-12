@@ -42,7 +42,8 @@ Every provider Pi supports natively ([pi.dev/docs/latest/providers](https://pi.d
 | NVIDIA NIM | `nvidia` | `NVIDIA_API_KEY` | NVIDIA API credits (not cap-counted; see below) |
 | Hugging Face, Fireworks, Together, Baseten | `huggingface`, `fireworks`, `together`, `baseten` | `HF_TOKEN`, `FIREWORKS_API_KEY`, `TOGETHER_API_KEY`, `BASETEN_API_KEY` | pay-as-you-go |
 | Vercel AI Gateway | `vercel-ai-gateway` | `AI_GATEWAY_API_KEY` | pay-as-you-go |
-| OpenCode Zen / Go | `opencode`, `opencode-go` | `OPENCODE_API_KEY` | pay-as-you-go |
+| OpenCode Zen | `opencode` | `OPENCODE_API_KEY` | pay-as-you-go |
+| OpenCode Go | `opencode-go` | `OPENCODE_API_KEY` (shared with Zen) | subscription (tokens + reference price, not cap-counted) |
 | Kimi For Coding | `kimi-coding` | `KIMI_API_KEY` | pay-as-you-go (Kimi Code login is a subscription) |
 | Moonshot AI (intl / CN) | `moonshotai`, `moonshotai-cn` | `MOONSHOT_API_KEY` | pay-as-you-go |
 | MiniMax (intl / CN) | `minimax`, `minimax-cn` | `MINIMAX_API_KEY`, `MINIMAX_CN_API_KEY` | pay-as-you-go |
@@ -65,6 +66,29 @@ How this behaves:
 - **Configuration values live beside the key.** Cloud providers show their extra fields (endpoint, resource, account, region, project) in the same Settings row; those values are echoed back unmasked so a stale region is easy to spot.
 - **The launcher's "no model access" warning** recognizes any of these keys; ambient-only setups (an AWS profile, `gcloud` ADC) may still see the warning even though the provider works — Settings shows the live status.
 - **llama.cpp** and other local OpenAI-compatible servers use the `openai-compatible` provider, not a separate Pi login.
+
+## OpenCode Go subscription
+
+[OpenCode Go](https://opencode.ai/docs/go/) is a subscription authenticated with an API key. Subscribe in the [OpenCode dashboard](https://opencode.ai/auth), then open **Settings → API keys → Direct model providers**, search for **OpenCode Go**, and paste your key. You can also set `OPENCODE_API_KEY` in `.env` before launch.
+
+Select a model in the **OpenCode Go** picker section, for example:
+
+- `opencode-go/kimi-k2.6`
+- `opencode-go/minimax-m3`
+- `opencode-go/gpt-5.6-luna`
+
+Available models and their capabilities come from the pinned Pi catalogue. Pi selects each model's appropriate API under `https://opencode.ai/zen/go` (Chat Completions, Responses, or Anthropic Messages). A model absent from that catalogue is rejected; Go's live roster may be newer than the installed Pi release.
+
+**Accounting:** Go's nonzero token prices measure reference usage against provider-managed limits. New Go runs record tokens and `listPriceUsd`, with `costUsd: 0`; they do not consume Kady's project spend cap. This includes specialist and helper requests. The subscription fee, remaining quota, and actual overage charges are managed by OpenCode. If **Use balance** is enabled in the OpenCode console, Go can draw from your Zen balance after its limits are reached; Kady cannot detect or cap that charge. `opencode/<model>` uses Zen's pay-as-you-go path even though it shares the same key.
+
+**Session routing:** native Pi chats and specialists send a stable `x-opencode-session` and Pi client identity. Kady's direct LaTeX assistance, Methods drafts, planning calls, and custom compaction also send session/client headers. Compaction retains its chat's identity; helper conversations have stable project/source-scoped identities.
+
+**Troubleshooting:**
+
+- If Go is missing from the picker, search for it under Direct model providers and save `OPENCODE_API_KEY`. Configured status means a credential was found; the first request validates it with OpenCode.
+- For authentication or quota errors, check your active Go subscription and usage in the OpenCode dashboard. Provider errors are surfaced rather than silently switching to a paid model.
+- A restored tab retains its selected model. Select a Go model explicitly, and check any specialist model overrides if a child uses another provider.
+- OpenRouter Fusion and the server-side speech-transcription fallback use OpenRouter credentials independently of the chat's model.
 
 ## OpenRouter models
 

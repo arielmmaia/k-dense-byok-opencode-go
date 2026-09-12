@@ -215,6 +215,26 @@ describe("makeScientificCompactionExtension", () => {
     expect(result.compaction.usage.cost.total).toBeCloseTo(0.005);
   });
 
+  it("keeps the Go chat identity on both compaction calls and preserves auth headers", async () => {
+    const generate = vi.fn(async () => ({ text: "Summary", usage: usage(0.01) }));
+    const { handler } = install(generate as SummaryGenerator);
+    const goContext = {
+      ...ctx({ ok: true, apiKey: "key", headers: () => ({ "X-Route": "custom", "X-OpenCode-Session": "stale" }) }),
+      model: { provider: "opencode-go", id: "kimi-k2.6" },
+    };
+    await handler(event({ preparation: { ...event().preparation, isSplitTurn: true, turnPrefixMessages: [{ role: "assistant", content: "prefix" }] } }), goContext);
+    expect(generate).toHaveBeenCalledTimes(2);
+    for (const args of (generate as unknown as { mock: { calls: unknown[][] } }).mock.calls) {
+      expect(args[4]).toEqual({
+        "x-route": "custom",
+        "x-opencode-session": sessionId,
+        "x-opencode-client": "kady",
+        "user-agent": expect.stringMatching(/^kady\//),
+      });
+      expect(args[13]).toBe(sessionId);
+    }
+  });
+
   it("falls back to Pi's default (undefined) on generator errors, missing credentials or no model", async () => {
     const failing = vi.fn(async () => {
       throw new Error("provider down");

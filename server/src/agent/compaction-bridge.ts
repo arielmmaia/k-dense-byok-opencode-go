@@ -30,6 +30,7 @@ import { readNotebookEntries, type NotebookEntry } from "./notebook-store.ts";
 import { withNotebookPlanHistory } from "./notebook-research.ts";
 import { readEnvironment } from "../provenance/environment.ts";
 import { readSteps } from "../provenance/store.ts";
+import { goRequestOptions } from "./opencode-go.ts";
 
 export const PREAMBLE_VERSION = 1;
 const MAX_PREAMBLE_ENTRIES = 20;
@@ -176,7 +177,8 @@ export function makeScientificCompactionExtension(
           log.warn({ error: auth.error }, "no credentials for the compaction model; using Pi's default");
           return undefined;
         }
-        const headers = resolveHeaders(auth.headers);
+        const requestOptions = goRequestOptions(model, sessionId, resolveHeaders(auth.headers));
+        const headers = requestOptions.headers;
         const instructions = [SCIENCE_COMPACTION_INSTRUCTIONS, event.customInstructions?.trim()]
           .filter(Boolean)
           .join("\n\n");
@@ -198,6 +200,9 @@ export function makeScientificCompactionExtension(
             ctx.thinkingLevel,
             undefined,
             auth.env,
+            undefined,
+            undefined,
+            requestOptions.sessionId,
           );
           summary += `\n\n## Conversation summary\n${main.text}`;
           usage = main.usage;
@@ -219,6 +224,9 @@ export function makeScientificCompactionExtension(
             ctx.thinkingLevel,
             undefined,
             auth.env,
+            undefined,
+            undefined,
+            requestOptions.sessionId,
           );
           summary += `\n\n## Current turn so far\n${prefix.text}`;
           usage = usage ? addUsage(usage, prefix.usage) : prefix.usage;
